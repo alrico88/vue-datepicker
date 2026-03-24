@@ -71,9 +71,14 @@ export const useComponentShared = () => {
             if (!startPresetDate) return;
             const endPresetDate = presetDates.length === 2 ? presetDates[1] : startPresetDate;
             if (!endPresetDate) return;
+            const originalRange = presetDates.length === 1 ? [startPresetDate] : [startPresetDate, endPresetDate];
 
             if (!minDate && !maxDate) {
                 modelValue.value = presetDates;
+                rootEmit('preset-range-applied', {
+                    originalRange,
+                    appliedRange: presetDates,
+                });
                 return;
             }
 
@@ -89,8 +94,23 @@ export const useComponentShared = () => {
 
             const clampedStart = minDate && isDateBefore(startDate, minDate) ? minDate : startDate;
             const clampedEnd = maxDate && isDateAfter(endDate, maxDate) ? maxDate : endDate;
+            const appliedRange = presetDates.length === 1 ? [clampedStart] : [clampedStart, clampedEnd];
 
-            modelValue.value = presetDates.length === 1 ? [clampedStart] : [clampedStart, clampedEnd];
+            if (
+                presetDates.length === 2 &&
+                (!isDateEqual(clampedStart, startDate) || !isDateEqual(clampedEnd, endDate))
+            ) {
+                rootEmit('preset-range-adjusted', {
+                    originalRange,
+                    appliedRange: [clampedStart, clampedEnd],
+                });
+            }
+
+            modelValue.value = appliedRange;
+            rootEmit('preset-range-applied', {
+                originalRange,
+                appliedRange,
+            });
         } else if (!Array.isArray(opts.value)) {
             modelValue.value = getDate(opts.value);
         }

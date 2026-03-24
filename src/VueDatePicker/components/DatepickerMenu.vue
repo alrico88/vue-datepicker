@@ -47,6 +47,7 @@
                             :preset-date="presetDate"
                             :label="preset.label"
                             :value="preset.value"
+                            :disabled="isPresetDisabled(preset.value)"
                         />
                     </template>
                     <template v-else>
@@ -57,8 +58,10 @@
                             :class="{ 'dp--preset-range-collapsed': collapse }"
                             :data-test-id="preset.testId ?? undefined"
                             :data-dp-mobile="isMobile"
-                            @click.prevent="presetDate(preset.value)"
-                            @keydown="checkKeyDown($event, () => presetDate(preset.value), true)"
+                            :disabled="isPresetDisabled(preset.value)"
+                            :aria-disabled="isPresetDisabled(preset.value)"
+                            @click.prevent="presetDateIfEnabled(preset.value)"
+                            @keydown="checkKeyDown($event, () => presetDateIfEnabled(preset.value), true)"
                         >
                             {{ preset.label }}
                         </button>
@@ -120,7 +123,7 @@
     import DatePicker from '@/components/DatePicker/DatePicker.vue';
     import QuarterPicker from '@/components/QuarterPicker/QuarterPicker.vue';
 
-    import { useArrowNavigation, useContext, useFlow, useHelperFns, useResponsive } from '@/composables';
+    import { useArrowNavigation, useContext, useDateUtils, useFlow, useHelperFns, useResponsive } from '@/composables';
     import { ArrowDirection, EventKey } from '@/constants';
     import type { DynamicClass, MenuExposedFn, MenuView, MonthModel } from '@/types';
     import { getSlotsByComponent, type MenuSlots, SlotUse } from '@/constants/slots.ts';
@@ -145,9 +148,11 @@
     const {
         state,
         rootProps,
+        getDate,
         defaults: { textInput, inline, config, ui, ariaLabels },
         setState,
     } = useContext();
+    const { isDateAfter, isDateBefore } = useDateUtils();
     const { isMobile } = useResponsive();
     const { handleEventPropagation, getElWithin, checkStopPropagation, checkKeyDown } = useHelperFns();
     useArrowNavigation();
@@ -303,6 +308,38 @@
 
     const presetDate = (value: MaybeRefOrGetter<Date[] | string[] | string | Date>) => {
         callChildFn('presetDate', toValue(value));
+    };
+
+    const isPresetDisabled = (value: MaybeRefOrGetter<Date[] | string[] | string | Date>) => {
+        const presetValue = toValue(value);
+        const minDate = rootProps.minDate ? getDate(rootProps.minDate) : null;
+        const maxDate = rootProps.maxDate ? getDate(rootProps.maxDate) : null;
+
+        if (!minDate && !maxDate) return false;
+
+        if (Array.isArray(presetValue)) {
+            if (!rootProps.range || !presetValue.length || presetValue.length > 2) return false;
+            const presetDates = presetValue.map((date) => getDate(date));
+            const startPresetDate = presetDates[0];
+            if (!startPresetDate) return true;
+            const endPresetDate = presetDates.length === 2 ? presetDates[1] : startPresetDate;
+            if (!endPresetDate) return true;
+
+            const [startDate, endDate] =
+                presetDates.length === 2 && isDateAfter(startPresetDate, endPresetDate)
+                    ? [endPresetDate, startPresetDate]
+                    : [startPresetDate, endPresetDate];
+
+            return !!((minDate && isDateBefore(endDate, minDate)) || (maxDate && isDateAfter(startDate, maxDate)));
+        }
+
+        const date = getDate(presetValue);
+        return !!((minDate && isDateBefore(date, minDate)) || (maxDate && isDateAfter(date, maxDate)));
+    };
+
+    const presetDateIfEnabled = (value: MaybeRefOrGetter<Date[] | string[] | string | Date>) => {
+        if (isPresetDisabled(value)) return;
+        presetDate(value);
     };
 
     const clearHoverDate = () => {

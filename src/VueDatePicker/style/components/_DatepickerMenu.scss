@@ -170,6 +170,20 @@
     cursor: pointer;
   }
 
+  &:disabled,
+  &[aria-disabled="true"] {
+    background-color: var(--dp-disabled-color);
+    color: var(--dp-disabled-color-text);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  &:disabled:hover,
+  &[aria-disabled="true"]:hover {
+    background-color: var(--dp-disabled-color);
+    color: var(--dp-disabled-color-text);
+  }
+
   &[data-dp-mobile] {
     border: 1px solid var(--dp-border-color);
     margin: 0 3px;

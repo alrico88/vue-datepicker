@@ -21,6 +21,8 @@ export interface RootEmits {
     'am-pm-change': [value: Hour12];
     'range-start': [date: Date];
     'range-end': [date: Date];
+    'preset-range-applied': [value: { originalRange: Date[]; appliedRange: Date[] }];
+    'preset-range-adjusted': [value: { originalRange: Date[]; appliedRange: Date[] }];
     'date-click': [date: Date];
     'overlay-toggle': [toggle: { open: boolean; overlay: PickerSection }];
     invalid: [event: Event];

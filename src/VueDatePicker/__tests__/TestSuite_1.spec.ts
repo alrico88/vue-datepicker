@@ -97,6 +97,27 @@ describe('Test Suite 1', () => {
             expect(latestValue).toHaveLength(2);
             expect(format(latestValue![0]!, 'yyyy-MM-dd')).toBe('2026-01-10');
             expect(format(latestValue![1]!, 'yyyy-MM-dd')).toBe('2026-01-20');
+
+            const adjustedEvents = dp.emitted('preset-range-adjusted') ?? [];
+            const adjustedPayload = adjustedEvents[adjustedEvents.length - 1]?.[0] as
+                | { originalRange: Date[]; appliedRange: Date[] }
+                | undefined;
+
+            expect(adjustedPayload).toBeDefined();
+            expect(format(adjustedPayload!.originalRange[0]!, 'yyyy-MM-dd')).toBe('2026-01-05');
+            expect(format(adjustedPayload!.originalRange[1]!, 'yyyy-MM-dd')).toBe('2026-01-25');
+            expect(format(adjustedPayload!.appliedRange[0]!, 'yyyy-MM-dd')).toBe('2026-01-10');
+            expect(format(adjustedPayload!.appliedRange[1]!, 'yyyy-MM-dd')).toBe('2026-01-20');
+
+            const appliedEvents = dp.emitted('preset-range-applied') ?? [];
+            const appliedPayload = appliedEvents[appliedEvents.length - 1]?.[0] as
+                | { originalRange: Date[]; appliedRange: Date[] }
+                | undefined;
+            expect(appliedPayload).toBeDefined();
+            expect(format(appliedPayload!.originalRange[0]!, 'yyyy-MM-dd')).toBe('2026-01-05');
+            expect(format(appliedPayload!.originalRange[1]!, 'yyyy-MM-dd')).toBe('2026-01-25');
+            expect(format(appliedPayload!.appliedRange[0]!, 'yyyy-MM-dd')).toBe('2026-01-10');
+            expect(format(appliedPayload!.appliedRange[1]!, 'yyyy-MM-dd')).toBe('2026-01-20');
         });
 
         it('Should not apply preset range when there is no intersection with min/max limits', async () => {
@@ -114,12 +135,55 @@ describe('Test Suite 1', () => {
                 ],
             });
 
+            const presetBtn = dp.find('[data-test-id="preset-range-no-overlap"]');
+            expect(presetBtn.attributes('disabled')).toBeDefined();
+
             const modelChangesBefore = (dp.emitted('internal-model-change') ?? []).length;
-            await dp.find('[data-test-id="preset-range-no-overlap"]').trigger('click');
+            await presetBtn.trigger('click');
             await flushPromises();
             const modelChangesAfter = (dp.emitted('internal-model-change') ?? []).length;
 
             expect(modelChangesAfter).toBe(modelChangesBefore);
+            expect(dp.emitted('preset-range-applied')).toBeUndefined();
+        });
+
+        it('Should keep preset enabled when there is an intersection with min/max limits', async () => {
+            const dp = await openMenu({
+                range: true,
+                minDate: new Date(2026, 0, 10),
+                maxDate: new Date(2026, 0, 20),
+                presetDates: [
+                    {
+                        label: 'Has overlap',
+                        testId: 'preset-range-with-overlap',
+                        value: [new Date(2026, 0, 5), new Date(2026, 0, 12)],
+                    },
+                ],
+            });
+
+            const presetBtn = dp.find('[data-test-id="preset-range-with-overlap"]');
+            expect(presetBtn.attributes('disabled')).toBeUndefined();
+        });
+
+        it('Should not emit preset-range-adjusted when preset range does not need clamping', async () => {
+            const dp = await openMenu({
+                range: true,
+                minDate: new Date(2026, 0, 10),
+                maxDate: new Date(2026, 0, 20),
+                presetDates: [
+                    {
+                        label: 'Already valid',
+                        testId: 'preset-range-valid',
+                        value: [new Date(2026, 0, 12), new Date(2026, 0, 15)],
+                    },
+                ],
+            });
+
+            await dp.find('[data-test-id="preset-range-valid"]').trigger('click');
+            await flushPromises();
+
+            expect(dp.emitted('preset-range-adjusted')).toBeUndefined();
+            expect(dp.emitted('preset-range-applied')).toBeDefined();
         });
     });
 });
