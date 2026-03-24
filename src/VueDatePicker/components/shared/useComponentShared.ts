@@ -8,7 +8,7 @@ export const useComponentShared = () => {
         rootEmit,
         rootProps,
         modelValue,
-        defaults: { range },
+        defaults: { range, safeDates },
     } = useContext();
 
     const handleMultiDatesSelect = (date: Date, multiDatesLimit?: number | string | null): void => {
@@ -62,7 +62,35 @@ export const useComponentShared = () => {
 
     const setPresetDate = (opts: { value: Date[] | string[] | Date | string }) => {
         if (Array.isArray(opts.value) && opts.value.length <= 2 && range.value.enabled) {
-            modelValue.value = opts.value.map((date) => getDate(date));
+            const presetDates = opts.value.map((date) => getDate(date));
+            const minDate = safeDates.value.minDate;
+            const maxDate = safeDates.value.maxDate;
+
+            if (!presetDates.length) return;
+            const startPresetDate = presetDates[0];
+            if (!startPresetDate) return;
+            const endPresetDate = presetDates.length === 2 ? presetDates[1] : startPresetDate;
+            if (!endPresetDate) return;
+
+            if (!minDate && !maxDate) {
+                modelValue.value = presetDates;
+                return;
+            }
+
+            const [startDate, endDate] =
+                presetDates.length === 2 && isDateAfter(startPresetDate, endPresetDate)
+                    ? [endPresetDate, startPresetDate]
+                    : [startPresetDate, endPresetDate];
+
+            const hasNoIntersection =
+                (minDate && isDateBefore(endDate, minDate)) || (maxDate && isDateAfter(startDate, maxDate));
+
+            if (hasNoIntersection) return;
+
+            const clampedStart = minDate && isDateBefore(startDate, minDate) ? minDate : startDate;
+            const clampedEnd = maxDate && isDateAfter(endDate, maxDate) ? maxDate : endDate;
+
+            modelValue.value = presetDates.length === 1 ? [clampedStart] : [clampedStart, clampedEnd];
         } else if (!Array.isArray(opts.value)) {
             modelValue.value = getDate(opts.value);
         }

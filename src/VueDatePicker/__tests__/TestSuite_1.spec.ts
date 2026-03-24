@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addMonths, subMonths } from 'date-fns';
+import { addMonths, format, subMonths } from 'date-fns';
+import { flushPromises } from '@vue/test-utils';
 import { getMonthToggleBtn, getMonthToggleText, openMenu, selectDate } from '@/__tests__/tests-utils.ts';
 
 describe('Test Suite 1', () => {
@@ -65,6 +66,60 @@ describe('Test Suite 1', () => {
         it('Should open menu when centered is enabled', async () => {
             const dp = await openMenu({ centered: true });
             expect(dp.find('.dp__menu').exists()).toBe(true);
+        });
+    });
+
+    describe('preset dates in range mode', () => {
+        it('Should clamp preset range to minDate and maxDate intersection', async () => {
+            const minDate = new Date(2026, 0, 10);
+            const maxDate = new Date(2026, 0, 20);
+
+            const dp = await openMenu({
+                range: true,
+                minDate,
+                maxDate,
+                presetDates: [
+                    {
+                        label: 'Out of bounds',
+                        testId: 'preset-range-clamped',
+                        value: [new Date(2026, 0, 5), new Date(2026, 0, 25)],
+                    },
+                ],
+            });
+
+            await dp.find('[data-test-id="preset-range-clamped"]').trigger('click');
+            await flushPromises();
+
+            const modelChanges = dp.emitted('internal-model-change') ?? [];
+            const latestValue = modelChanges.at(-1)?.[0] as Date[] | undefined;
+
+            expect(Array.isArray(latestValue)).toBe(true);
+            expect(latestValue).toHaveLength(2);
+            expect(format(latestValue![0]!, 'yyyy-MM-dd')).toBe('2026-01-10');
+            expect(format(latestValue![1]!, 'yyyy-MM-dd')).toBe('2026-01-20');
+        });
+
+        it('Should not apply preset range when there is no intersection with min/max limits', async () => {
+            const dp = await openMenu({
+                range: true,
+                minDate: new Date(2026, 0, 10),
+                maxDate: new Date(2026, 0, 20),
+                modelValue: [new Date(2026, 0, 12), new Date(2026, 0, 14)],
+                presetDates: [
+                    {
+                        label: 'No overlap',
+                        testId: 'preset-range-no-overlap',
+                        value: [new Date(2026, 0, 1), new Date(2026, 0, 5)],
+                    },
+                ],
+            });
+
+            const modelChangesBefore = (dp.emitted('internal-model-change') ?? []).length;
+            await dp.find('[data-test-id="preset-range-no-overlap"]').trigger('click');
+            await flushPromises();
+            const modelChangesAfter = (dp.emitted('internal-model-change') ?? []).length;
+
+            expect(modelChangesAfter).toBe(modelChangesBefore);
         });
     });
 });
