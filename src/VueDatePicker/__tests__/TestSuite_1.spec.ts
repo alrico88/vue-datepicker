@@ -91,7 +91,7 @@ describe('Test Suite 1', () => {
             await flushPromises();
 
             const modelChanges = dp.emitted('internal-model-change') ?? [];
-            const latestValue = modelChanges.at(-1)?.[0] as Date[] | undefined;
+            const latestValue = modelChanges[modelChanges.length - 1]?.[0] as Date[] | undefined;
 
             expect(Array.isArray(latestValue)).toBe(true);
             expect(latestValue).toHaveLength(2);
